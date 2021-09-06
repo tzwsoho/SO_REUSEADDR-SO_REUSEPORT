@@ -4,3 +4,12 @@
 /tcp/client/client
 /http/server/server
 /http/client/client
+/3.update/server/server
+/3.update/server/go.sum
+/1.tcp/client/client
+/1.tcp/server/server
+/2.http/client/client
+/2.http/server/server
+/3.update/client/client
+/1.tcp/server/go.sum
+/2.http/server/go.sum
