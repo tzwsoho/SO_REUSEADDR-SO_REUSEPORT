@@ -56,8 +56,9 @@ func main() {
 		t := strconv.FormatInt(time.Now().UnixNano(), 10)
 
 		if stopServer {
-			r.Close = true
-			// rw.Header().Add("Connection", "Close")
+			// r.Close = true
+			rw.Header().Add("Connection", "Close")
+			log.Println("Closing...")
 		}
 
 		rw.Write([]byte(t))
@@ -71,24 +72,6 @@ func main() {
 			log.Fatal(pc, file, line, err)
 		}
 	}
-
-	// 处理服务更新自定义信号
-	c := make(chan os.Signal)
-	signal.Notify(c, syscall.Signal(10))
-	go func() {
-		<-c
-
-		// 收到新服务更新信号：
-		// 1.关闭监听器，不再接受新的连接
-		// 2.给客户端发断开连接消息
-		// 3.删除旧 PID 文件，关闭程序
-
-		lsn.Close()
-		stopServer = true
-
-		os.Remove(oldPIDFile)
-		os.Exit(0)
-	}()
 
 	// 给旧服务发送更新信号
 	const pidFile string = "/tmp/go_update.pid"
@@ -139,9 +122,29 @@ func main() {
 	}
 
 	// 开始处理 HTTP 请求
-	err = http.Serve(lsn, nil)
-	if err != nil {
-		pc, file, line, _ := runtime.Caller(0)
-		log.Fatal(pc, file, line, err)
-	}
+	httpServer := &http.Server{}
+
+	go func() {
+		err = httpServer.Serve(lsn)
+		// err = http.Serve(lsn, nil)
+		if err != nil {
+			pc, file, line, _ := runtime.Caller(0)
+			log.Fatal(pc, file, line, err)
+		}
+	}()
+
+	// 处理服务更新自定义信号
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.Signal(10))
+	<-c
+
+	// 收到新服务更新信号：
+	// 1.关闭监听器，不再接受新的连接
+	// 2.给客户端发断开连接消息
+	// 3.删除旧 PID 文件，关闭程序
+
+	httpServer.Shutdown(context.Background())
+	stopServer = true
+
+	os.Remove(oldPIDFile)
 }
