@@ -132,7 +132,7 @@ func main() {
 	}
 
 	// 新建 PID 文件
-	err = ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(os.Getpid()), 10)), os.ModeTemporary)
+	err = ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(os.Getpid()), 10)), 0600)
 	if nil != err {
 		pc, file, line, _ := runtime.Caller(0)
 		log.Fatal(pc, file, line, err)
