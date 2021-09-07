@@ -31,8 +31,7 @@ SO_REUSEADDR       socketA        socketB       Result
 */
 
 func main() {
-	stopServer := false
-
+	// 初始化监听器
 	lc := net.ListenConfig{
 		Control: func(network, address string, rc syscall.RawConn) (err error) {
 			return rc.Control(SetFdOpt)
@@ -45,6 +44,8 @@ func main() {
 		log.Fatal(pc, file, line, err)
 	}
 
+	//////////////////////////////////////////////////////////////////////////////////////////////
+
 	http.HandleFunc("/ping", func(rw http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -55,14 +56,16 @@ func main() {
 		log.Printf("Recv From %s: %s", r.RemoteAddr, string(b))
 		t := strconv.FormatInt(time.Now().UnixNano(), 10)
 
-		if stopServer {
-			// r.Close = true
-			rw.Header().Add("Connection", "Close")
-			log.Println("Closing...")
-		}
-
 		rw.Write([]byte(t))
 	})
+
+	// 开始处理 HTTP 请求
+	httpServer := &http.Server{}
+	httpServer.SetKeepAlivesEnabled(false)
+
+	go httpServer.Serve(lsn)
+
+	//////////////////////////////////////////////////////////////////////////////////////////////
 
 	// 删除旧 PID 文件
 	const oldPIDFile string = "/tmp/go_update.pid.old"
@@ -121,30 +124,15 @@ func main() {
 		log.Fatal(pc, file, line, err)
 	}
 
-	// 开始处理 HTTP 请求
-	httpServer := &http.Server{}
-
-	go func() {
-		err = httpServer.Serve(lsn)
-		// err = http.Serve(lsn, nil)
-		if err != nil {
-			pc, file, line, _ := runtime.Caller(0)
-			log.Fatal(pc, file, line, err)
-		}
-	}()
-
 	// 处理服务更新自定义信号
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.Signal(10))
+	signal.Notify(c, syscall.Signal(10), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-c
 
 	// 收到新服务更新信号：
 	// 1.关闭监听器，不再接受新的连接
-	// 2.给客户端发断开连接消息
-	// 3.删除旧 PID 文件，关闭程序
+	// 2.删除旧 PID 文件，关闭程序
 
 	httpServer.Shutdown(context.Background())
-	stopServer = true
-
 	os.Remove(oldPIDFile)
 }

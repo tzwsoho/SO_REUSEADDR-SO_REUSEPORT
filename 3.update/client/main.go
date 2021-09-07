@@ -25,15 +25,15 @@ func main() {
 	// 		res, err := http.Post("http://"+os.Args[1]+":1234/ping", "text/plain", bytes.NewReader([]byte(t)))
 	// 		if err != nil {
 	// 			pc, file, line, _ := runtime.Caller(0)
-	// 			log.Println(pc, file, line, t, err)
+	// 			log.Fatalln(pc, file, line, t, err)
 	// 		} else if http.StatusOK != res.StatusCode {
 	// 			pc, file, line, _ := runtime.Caller(0)
-	// 			log.Println(pc, file, line, t, res)
+	// 			log.Fatalln(pc, file, line, t, res)
 	// 		} else {
 	// 			b, err := ioutil.ReadAll(res.Body)
 	// 			if err != nil {
 	// 				pc, file, line, _ := runtime.Caller(0)
-	// 				log.Println(pc, file, line, t, err)
+	// 				log.Fatalln(pc, file, line, t, err)
 	// 			} else {
 	// 				log.Printf("%d Recv: %s, org: %s", time.Now().UnixNano(), string(b), t)
 	// 				break
@@ -47,6 +47,7 @@ func main() {
 	for {
 		client := http.Client{
 			Transport: &http.Transport{
+				DisableKeepAlives: true,
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
 				},
@@ -59,21 +60,24 @@ func main() {
 			req, err := http.NewRequest("POST", "http://"+os.Args[1]+":1234/ping", bytes.NewReader([]byte(t)))
 			if err != nil {
 				pc, file, line, _ := runtime.Caller(0)
-				log.Println(pc, file, line, t, err)
+				log.Fatalln(pc, file, line, t, err)
 			} else {
+				req.Close = true
+				req.Header.Add("Connection", "Close")
+
 				if res, err := client.Do(req); nil != err { // CentOS 7 测试：旧服务器关闭，或新服务器开启，都有可能产生错误
 					pc, file, line, _ := runtime.Caller(0)
-					log.Println(pc, file, line, t, err)
+					log.Fatalln(pc, file, line, t, err)
 				} else if http.StatusOK != res.StatusCode {
 					pc, file, line, _ := runtime.Caller(0)
-					log.Println(pc, file, line, t, res)
+					log.Fatalln(pc, file, line, t, res)
 				} else {
-					b, err := ioutil.ReadAll(res.Body)
+					_, err := ioutil.ReadAll(res.Body)
 					if err != nil {
 						pc, file, line, _ := runtime.Caller(0)
-						log.Println(pc, file, line, t, err)
+						log.Fatalln(pc, file, line, t, err)
 					} else {
-						log.Printf("%d Recv: %s, org: %s", time.Now().UnixNano(), string(b), t)
+						// log.Printf("%d Recv: %s, org: %s", time.Now().UnixNano(), string(b), t)
 						break
 					}
 				}
